@@ -1,91 +1,173 @@
 import subprocess
-import platform
 import json
+from datetime import datetime
+
+# Global Variables
+software_list = []
+windows_version = ""
+
+
+# ------------------- Utility Functions -------------------
+
+def run_powershell_command(script):
+    """Executes a PowerShell command and returns the output."""
+    try:
+        result = subprocess.run(
+            ["powershell", "-Command", script],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"[!] PowerShell error:\n{e.stderr}")
+        return None
+
+
+def parse_json(raw_output):
+    """Parses a raw JSON string into a Python object."""
+    try:
+        return json.loads(raw_output)
+    except json.JSONDecodeError:
+        print("[!] Failed to parse JSON.")
+        return []
+
+
+# ------------------- System Information -------------------
 
 def get_windows_version():
-    try:
-        output = subprocess.check_output(["powershell", "-Command", "(Get-CimInstance Win32_OperatingSystem).Caption"], text=True)
-        return output.strip()
-    except Exception as e:
-        return f"Error retrieving Windows version: {e}"
+    """Fetches Windows version, build, and architecture info."""
+    script = r"""
+    $os = Get-CimInstance Win32_OperatingSystem
+    $arch = (Get-CimInstance Win32_Processor).AddressWidth
+    [PSCustomObject]@{
+        Name         = $os.Caption
+        Version      = $os.Version
+        BuildNumber  = $os.BuildNumber
+        Architecture = "$arch-bit"
+    } | ConvertTo-Json
+    """
 
-def get_installed_apps():
-    try:
-        ps_script = r"""
-                $allApps = @()
-                $registryPaths = @(
-                    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
-                    "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-                    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
-                )
+    output = run_powershell_command(script)
+    info = parse_json(output)
 
-                foreach ($path in $registryPaths) {
-                    $items = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName }
-                    foreach ($item in $items) {
-                        $allApps += [PSCustomObject]@{
-                            DisplayName    = $item.DisplayName
-                            DisplayVersion = if ($item.DisplayVersion) { $item.DisplayVersion } else { "N/A" }
-                            Publisher      = if ($item.Publisher)      { $item.Publisher }      else { "N/A" }
-                            Source         = "Registry"
-                        }
-                    }
-                }
+    if isinstance(info, list) and info:
+        info = info[0]
+    elif not isinstance(info, dict):
+        return "Windows Version: Unknown"
 
-                # Get Microsoft Store (UWP) apps
-                $uwpApps = Get-AppxPackage | Where-Object { $_.Name } | ForEach-Object {
-                    [PSCustomObject]@{
-                        DisplayName    = $_.Name
-                        DisplayVersion = if ($_.Version)   { $_.Version.ToString() } else { "N/A" }
-                        Publisher      = if ($_.Publisher) { $_.Publisher } else { "N/A" }
-                        Source         = "Store"
-                    }
-                }
+    return (
+        f"{info.get('Name', 'Windows')} "
+        f"Version {info.get('Version', 'N/A')} "
+        f"(Build {info.get('BuildNumber', 'N/A')}, {info.get('Architecture', 'N/A')})"
+    )
 
-                $allApps += $uwpApps
-                $allApps | Sort-Object DisplayName | ConvertTo-Json -Depth 2
-                """
-        output = subprocess.check_output(["powershell", "-Command", ps_script], text=True)
-        apps = json.loads(output)
-        if isinstance(apps, dict):  # Happens when only one app is returned
-            apps = [apps]
-        return apps
-    except Exception as e:
-        return f"Error retrieving installed apps: {e}"
-def categorize_apps(apps):
-    system_apps = []
-    installed_apps = []
 
-    system_keywords = [
-        "Microsoft", ".NET", "Visual C++", "Redistributable", "Windows", "Runtime", "Edge", "Defender"
+# ------------------- Software Enumeration -------------------
+
+def fetch_registry_apps():
+    """Collects software listed in Windows Registry."""
+    script = r"""
+    $apps = @()
+    $paths = @(
+        "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*",
+        "HKLM:\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*",
+        "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*"
+    )
+    foreach ($path in $paths) {
+        $items = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName }
+        foreach ($item in $items) {
+            $apps += [PSCustomObject]@{
+                DisplayName    = $item.DisplayName
+                DisplayVersion = if ($item.DisplayVersion) { $item.DisplayVersion } else { "N/A" }
+                Publisher      = if ($item.Publisher) { $item.Publisher } else { "N/A" }
+                Source         = "Registry"
+            }
+        }
+    }
+    $apps | Sort-Object DisplayName | ConvertTo-Json -Depth 2
+    """
+    return parse_json(run_powershell_command(script))
+
+
+def fetch_store_apps():
+    """Collects apps installed from the Microsoft Store."""
+    script = r"""
+    Get-AppxPackage | Where-Object { $_.Name } | ForEach-Object {
+        [PSCustomObject]@{
+            DisplayName    = $_.Name
+            DisplayVersion = $_.Version.ToString()
+            Publisher      = if ($_.Publisher) { $_.Publisher } else { "N/A" }
+            Source         = "Store"
+        }
+    } | Sort-Object DisplayName | ConvertTo-Json -Depth 2
+    """
+    return parse_json(run_powershell_command(script))
+
+
+def get_installed_software():
+    """Returns a combined list of registry and store applications."""
+    registry_apps = fetch_registry_apps()
+    store_apps = fetch_store_apps()
+    return registry_apps + store_apps
+
+
+# ------------------- Report Generation -------------------
+
+def generate_report(windows_version, software_list):
+    """Formats and returns a readable software report string."""
+
+    def format_app(app):
+        return (
+            f"- {app.get('DisplayName', 'Unknown')} "
+            f"| Version: {app.get('DisplayVersion', 'N/A')} "
+            f"| Publisher: {app.get('Publisher', 'N/A')}"
+        )
+
+    # Exclude Microsoft apps from user-installed apps
+    system_apps = [
+        app for app in software_list
+        if 'microsoft' in app.get("DisplayName", "").lower() or 'microsoft' in app.get("Publisher", "").lower()
     ]
 
-    for app in apps:
-        name = app.get("DisplayName", "").lower()
-        publisher = app.get("Publisher", "").lower()
+    user_apps = [app for app in software_list if app not in system_apps]
 
-        if any(keyword.lower() in name or keyword.lower() in publisher for keyword in system_keywords):
-            system_apps.append(app)
-        else:
-            installed_apps.append(app)
+    report_lines = [
+        f"Windows Version: {windows_version}\n",
+        "=== User Installed Software ===\n",
+        *map(format_app, user_apps),
+        "\n=== System Software (Microsoft) ===\n",
+        *map(format_app, system_apps)
+    ]
 
-    return system_apps, installed_apps
+    return "\n".join(report_lines)
+
+
+# ------------------- Main Execution -------------------
+
+def main():
+    global software_list, windows_version
+
+    print("[*] Gathering system information...")
+    windows_version = get_windows_version()
+
+    print("[*] Gathering installed software...")
+    software_list = get_installed_software()
+
+    print("[*] Compiling report...\n")
+    report_text = generate_report(windows_version, software_list)
+    print(report_text)
+
+    save = input("\nDo you want to save this report to a .txt file? (y/n): ").strip().lower()
+    if save == 'y':
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"software_report_{timestamp}.txt"
+        with open(filename, "w", encoding="utf-8") as file:
+            file.write(report_text)
+        print(f"[✓] Report saved as: {filename}")
+    else:
+        print("[*] Report not saved.")
+
 
 if __name__ == "__main__":
-    if platform.system() != "Windows":
-        print("This script is intended to run on Windows.")
-    else:
-        print("Windows Version:", get_windows_version())
-
-        apps = get_installed_apps()
-        if isinstance(apps, str):
-            print(apps)
-        else:
-            system_apps, installed_apps = categorize_apps(apps)
-
-            print("\n=== System Apps (Windows & Microsoft Components) ===\n")
-            for app in system_apps:
-                print(f"{app.get('DisplayName', 'N/A')} | Version: {app.get('DisplayVersion', 'N/A')} | Publisher: {app.get('Publisher', 'N/A')} | Source: {app.get('Source', 'N/A')}")
-
-            print("\n=== Installed Apps (User-installed) ===\n")
-            for app in installed_apps:
-                print(f"{app.get('DisplayName', 'N/A')} | Version: {app.get('DisplayVersion', 'N/A')} | Publisher: {app.get('Publisher', 'N/A')} | Source: {app.get('Source', 'N/A')}")
+    main()
