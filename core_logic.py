@@ -98,10 +98,20 @@ def fetch_store_apps():
     """Collects apps installed from the Microsoft Store."""
     script = r"""
     Get-AppxPackage | Where-Object { $_.Name } | ForEach-Object {
+        # Clean Publisher
+        $pub = if ($_.Publisher -match "O=([^,]+)") { $matches[1] } else { $_.Publisher }
+
+        # Clean DisplayName (remove prefixes like 'Microsoft.', trim package suffixes)
+        $rawName = $_.Name
+        $cleanName = $rawName -replace '^.*?\.', '' -replace '_.*$', ''
+
+        # Version cleanup
+        $version = if ($_.Version) { $_.Version.ToString() } else { "N/A" }
+
         [PSCustomObject]@{
-            DisplayName    = $_.Name
-            DisplayVersion = $_.Version.ToString()
-            Publisher      = if ($_.Publisher) { $_.Publisher } else { "N/A" }
+            DisplayName    = if ($cleanName) { $cleanName } else { "Unknown" }
+            DisplayVersion = $version
+            Publisher      = if ($pub) { $pub } else { "N/A" }
             Source         = "Store"
         }
     } | Sort-Object DisplayName | ConvertTo-Json -Depth 2
