@@ -1,6 +1,7 @@
 import subprocess
 import json
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 # Global Variables
 software_list = []
@@ -26,10 +27,13 @@ def run_powershell_command(script):
 
 def parse_json(raw_output):
     """Parses a raw JSON string into a Python object."""
+    if not raw_output:
+        print("[!] Empty PowerShell output.")
+        return []
     try:
         return json.loads(raw_output)
     except json.JSONDecodeError:
-        print("[!] Failed to parse JSON.")
+        print(f"[!] Failed to parse JSON:\n{raw_output[:200]}")
         return []
 
 
@@ -106,10 +110,11 @@ def fetch_store_apps():
 
 
 def get_installed_software():
-    """Returns a combined list of registry and store applications."""
-    registry_apps = fetch_registry_apps()
-    store_apps = fetch_store_apps()
-    return registry_apps + store_apps
+    """Returns a combined list of registry and store applications in parallel."""
+    with ThreadPoolExecutor() as executor:
+        registry_future = executor.submit(fetch_registry_apps)
+        store_future = executor.submit(fetch_store_apps)
+        return registry_future.result() + store_future.result()
 
 
 # ------------------- Report Generation -------------------
