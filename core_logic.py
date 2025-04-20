@@ -99,7 +99,7 @@ def fetch_store_apps():
     script = r"""
     Get-AppxPackage | Where-Object { $_.Name } | ForEach-Object {
         # Clean Publisher
-        $pub = if ($_.Publisher -match "O=([^,]+)") { $matches[1] } else { $_.Publisher }
+        $pub = if ($_.Publisher -match "O=([^,]+)") { $matches[1] } else { "N/A" }
 
         # Clean DisplayName (remove prefixes like 'Microsoft.', trim package suffixes)
         $rawName = $_.Name
