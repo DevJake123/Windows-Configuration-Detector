@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem,
-    QHBoxLayout, QCheckBox, QComboBox, QFileDialog, QLineEdit, QGroupBox, QHeaderView, QScrollArea
+    QHBoxLayout, QCheckBox, QComboBox, QFileDialog, QLineEdit, QGroupBox, QHeaderView
 )
+from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt
 from core_logic import get_windows_version, get_installed_software, generate_report
 from reportlab.lib.pagesizes import letter
@@ -34,11 +35,6 @@ class ConfigDetectorUI(QWidget):
         self.search_bar.textChanged.connect(self.apply_filters)
         filter_layout.addWidget(self.search_bar)
 
-        self.sort_box = QComboBox()
-        self.sort_box.addItems(["Sort Alphabetically (A-Z)", "Sort Alphabetically (Z-A)"])
-        self.sort_box.currentIndexChanged.connect(self.apply_filters)
-        filter_layout.addWidget(self.sort_box)
-
         layout.addLayout(filter_layout)
 
         # App Table Group (User Apps)
@@ -68,8 +64,21 @@ class ConfigDetectorUI(QWidget):
         table.horizontalHeader().setStretchLastSection(True)
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)
+        table.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
+
+        copy_action = QAction("Copy", table)
+        copy_action.triggered.connect(lambda: self.copy_selection(table))
+        table.addAction(copy_action)
+
         return table
+
+    def copy_selection(self, table):
+        selection = table.selectedItems()
+        if selection:
+            clipboard_text = "\t".join(item.text() for item in selection)
+            QApplication.clipboard().setText(clipboard_text)
 
     def run_scan(self):
         self.version_label.setText(f"Windows Version: {get_windows_version()}")
@@ -78,7 +87,6 @@ class ConfigDetectorUI(QWidget):
 
     def apply_filters(self):
         text = self.search_bar.text().lower()
-        sort_desc = self.sort_box.currentIndex() == 1
 
         if self.show_microsoft:
             filtered_apps = self.software_list
@@ -90,8 +98,6 @@ class ConfigDetectorUI(QWidget):
         def app_sort(app):
             return app.get("DisplayName", "").lower()
 
-        filtered_apps = sorted(filtered_apps, key=app_sort, reverse=sort_desc)
-
         if text:
             filtered_apps = [app for app in filtered_apps if text in app.get("DisplayName", "").lower()
                              or text in app.get("Publisher", "").lower()]
@@ -99,6 +105,7 @@ class ConfigDetectorUI(QWidget):
         self.populate_table(self.user_table, filtered_apps)
 
     def populate_table(self, table, apps):
+        table.setSortingEnabled(False)
         table.setRowCount(0)
         for row, app in enumerate(apps):
             table.insertRow(row)
@@ -107,6 +114,8 @@ class ConfigDetectorUI(QWidget):
                 item = QTableWidgetItem(str(value))
                 item.setToolTip(str(value))  # Tooltip with full text
                 table.setItem(row, col, item)
+        table.setSortingEnabled(True)
+        table.sortItems(0, Qt.SortOrder.AscendingOrder)
 
     def toggle_microsoft_apps(self):
         try:
