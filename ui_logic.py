@@ -2,13 +2,18 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem,
     QHBoxLayout, QCheckBox, QComboBox, QFileDialog, QLineEdit, QGroupBox, QHeaderView
 )
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import (
+    QAction, QIcon
+)
 from PyQt6.QtCore import Qt
 from core_logic import get_windows_version, get_installed_software, generate_report
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+
 import sys
 import csv
+import os
+
 class ConfigDetectorUI(QWidget):
     def __init__(self):
         super().__init__()
@@ -59,8 +64,8 @@ class ConfigDetectorUI(QWidget):
 
     def create_table(self):
         table = QTableWidget()
-        table.setColumnCount(4)
-        table.setHorizontalHeaderLabels(["Name", "Version", "Publisher", "Source"])
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(["Name", "Version", "Publisher", "Source", "Open File Location"])
         table.horizontalHeader().setStretchLastSection(True)
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -114,6 +119,16 @@ class ConfigDetectorUI(QWidget):
                 item = QTableWidgetItem(str(value))
                 item.setToolTip(str(value))  # Tooltip with full text
                 table.setItem(row, col, item)
+                #adds the file path location button
+            path = app.get("AppLocation") or app.get("DisplayIcon") or ""
+            if path and os.path.exists(path):
+                button = QPushButton()
+                button.setIcon(QIcon.fromTheme("folder"))
+                button.setToolTip("Open File Location")
+                button.clicked.connect(lambda _, p=path: self.open_location(p))
+                table.setCellWidget(row, 4, button)
+            else:
+                table.setItem(row, 4, QTableWidgetItem("Undefined"))
         table.setSortingEnabled(True)
         table.sortItems(0, Qt.SortOrder.AscendingOrder)
 
@@ -124,6 +139,14 @@ class ConfigDetectorUI(QWidget):
             self.apply_filters()
         except Exception as e:
             print(f"[ERROR] Toggle failed: {e}")
+
+    def open_location(self, path):
+        if os.path.isfile(path):
+            path = os.path.dirname(path)
+        if os.path.exists(path):
+            os.startfile(path)
+        else:
+            print(f"[!] No File Path Found [!]. {path}")
 
     def save_report(self):
         file_path, selected_filter = QFileDialog.getSaveFileName(

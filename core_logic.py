@@ -86,6 +86,8 @@ def fetch_registry_apps():
                 DisplayVersion = if ($item.DisplayVersion) { $item.DisplayVersion } else { "N/A" }
                 Publisher      = if ($item.Publisher) { $item.Publisher } else { "N/A" }
                 Source         = "Registry"
+                DisplayIcon    = if ($item.DisplayIcon) {$item.DisplayIcon} else {""}
+                AppLocation    = if ($item.AppLocation) {$item.AppLocation} else {""}
             }
         }
     }
