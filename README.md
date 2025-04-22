@@ -8,79 +8,49 @@ This tool is especially useful for IT professionals, QA testers, and system admi
 Features
 
 Detects the current Windows version and build.
-
 Lists software from both:
-
-Windows Registry (traditional programs)
-
-Microsoft Store (UWP apps)
-
+  Windows Registry (traditional programs)
+  Microsoft Store (UWP apps)
 Search functionality by name or publisher.
-
 Option to include/exclude Microsoft applications.
-
 Right-click copy functionality in the app table.
-
 One-click report generation with support for:
-
-Plain text (.txt)
-
-PDF (.pdf)
-
-JSON (.json)
-
-CSV (.csv)
-
+  Plain text (.txt)
+  PDF (.pdf)
+  JSON (.json)
+  CSV (.csv)
 File location shortcuts for software with valid paths.
 
 Technologies Used
-
 Python 3
-
 PyQt6: GUI toolkit for building desktop interfaces
-
 PowerShell: Backend system interrogation using Windows commands
-
 ReportLab: PDF report generation
-
 CSV/JSON: Built-in Python libraries for file export
 
 Setup Instructions
-
 Prerequisites
-
-Python 3.8 or newer
-
-Windows OS (required for PowerShell support)
-
-Ensure PowerShell is accessible via command line (powershell command)
+  Python 3.8 or newer
+  Windows OS (required for PowerShell support)
+  Ensure PowerShell is accessible via command line (powershell command)
 
 Installation
-
 Clone or download the repository.
-
 Install dependencies:
-
-pip install PyQt6 reportlab
-
+  pip install PyQt6 reportlab
 Running the Application
-
-python ui_logic.py
-
+run ui_logic.py for UI or core_logic.py for console
 File Structure
 
 windows-config-detector/
-├── core_logic.py       # Handles scanning and reporting logic using PowerShell
-├── ui_logic.py         # PyQt6 GUI interface
-├── README.md           # Project documentation
+├── core_logic.py       
+├── ui_logic.py         
+├── README.md           
 
 
 GUI Mode:
-
 Displays software in a sortable, searchable table.
-
 Options to filter Microsoft applications.
-
 Export button to generate reports.
 
 Authors
