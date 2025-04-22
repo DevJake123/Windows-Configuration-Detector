@@ -13,13 +13,14 @@ windows_version = ""
 def run_powershell_command(script):
     """Executes a PowerShell command and returns the output."""
     try:
+        # subprocess.run executes the command; captures stdout and stderr as text
         result = subprocess.run(
             ["powershell", "-Command", script],
             capture_output=True,
             text=True,
             check=True
         )
-        return result.stdout.strip()
+        return result.stdout.strip()# Remove extra newlines
     except subprocess.CalledProcessError as e:
         print(f"[!] PowerShell error:\n{e.stderr}")
         return None
@@ -56,10 +57,10 @@ def get_windows_version():
     info = parse_json(output)
 
     if isinstance(info, list) and info:
-        info = info[0]
+        info = info[0]# Extract single object from array
     elif not isinstance(info, dict):
         return "Windows Version: Unknown"
-
+    # Format the Windows version string for display or reporting
     return (
         f"{info.get('Name', 'Windows')} "
         f"Version {info.get('Version', 'N/A')} "
