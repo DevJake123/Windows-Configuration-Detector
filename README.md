@@ -40,13 +40,6 @@ This tool is especially useful for IT professionals, QA testers, and system admi
 - Windows OS (required for PowerShell support)
 - Ensure PowerShell is accessible via command line (`powershell` command)
 
-### Installation
-```bash
-git clone https://github.com/your-repo/windows-config-detector.git
-cd windows-config-detector
-pip install PyQt6 reportlab
-```
-
 ### Running the Application
 - For the GUI:
   ```bash
