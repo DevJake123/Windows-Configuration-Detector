@@ -74,17 +74,6 @@ windows-config-detector/
 ├── ui_logic.py         # PyQt6 GUI interface
 ├── README.md           # Project documentation
 
-Example Output
-
-Console (CLI mode from core_logic.py):
-
-[*] Gathering system information...
-[*] Gathering installed software...
-[*] Compiling report...
-Windows Version: Windows 11 Pro Version 10.0.22000 (Build 22000, 64-bit)
-=== User Installed Software ===
-- Firefox | Version: 112.0.1 | Publisher: Mozilla
-...
 
 GUI Mode:
 
